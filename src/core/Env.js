@@ -47,6 +47,7 @@ getJasmineRequireObj().Env = function(j$) {
     let topSuite;
     let runner;
     let parallelLoadingState = null; // 'specs', 'helpers', or null for non-parallel
+    let currentLoadingFile = null;
 
     /**
      * This represents the available options to configure Jasmine.
@@ -232,6 +233,16 @@ getJasmineRequireObj().Env = function(j$) {
         result[property] = config[property];
       }
       return result;
+    };
+
+    this.setCurrentFile = function(filename) {
+      ensureNonParallel('setCurrentFile');
+      currentLoadingFile = filename;
+    };
+
+    this.getCurrentFile = function() {
+      ensureNonParallel('getCurrentFile');
+      return currentLoadingFile;
     };
 
     this.setDefaultSpyStrategy = function(defaultStrategyFn) {
@@ -946,13 +957,21 @@ getJasmineRequireObj().Env = function(j$) {
         globalErrors.uninstall();
       }
     };
-  }
 
-  function callerCallerFilename() {
-    const frames = new j$.StackTrace(new Error()).frames;
-    // frames[3] should always exist except in Jasmine's own tests, which bypass
-    // the global it/describe layer, but don't crash if it doesn't.
-    return frames[3] && frames[3].file;
+    function callerCallerFilename() {
+      if (currentLoadingFile) {
+        return currentLoadingFile;
+      }
+
+      try {
+        const frames = new j$.StackTrace(new Error()).frames;
+        // frames[3] should always exist except in Jasmine's own tests, which bypass
+        // the global it/describe layer, but don't crash if it doesn't.
+        return frames[3] && frames[3].file;
+      } catch (e) {
+        return null;
+      }
+    }
   }
 
   return Env;
