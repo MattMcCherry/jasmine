@@ -1209,10 +1209,6 @@ describe('Clock (acceptance)', function() {
     let clock, fakeGlobal, delayedFunctionScheduler, mockDate;
 
     beforeEach(function() {
-      if (typeof Intl === 'undefined' || !Intl.DateTimeFormat) {
-        pending('Intl.DateTimeFormat not available in this environment');
-      }
-
       fakeGlobal = {
         Date: Date,
         Intl: Intl,
@@ -1236,10 +1232,14 @@ describe('Clock (acceptance)', function() {
       clock.install();
       clock.mockDate(new Date(2020, 11, 20, 10, 10)); // Dec 20, 2020
 
-      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', { timeZone: 'UTC' });
+      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
+        timeZone: 'UTC'
+      });
 
-      expect(formatter.format()).toEqual(formatter.format(new fakeGlobal.Date()));
-      
+      expect(formatter.format()).toEqual(
+        formatter.format(new fakeGlobal.Date())
+      );
+
       clock.uninstall();
     });
 
@@ -1247,10 +1247,14 @@ describe('Clock (acceptance)', function() {
       clock.install();
       clock.mockDate(new Date(2020, 11, 20, 10, 10)); // Dec 20, 2020
 
-      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', { timeZone: 'UTC' });
+      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
+        timeZone: 'UTC'
+      });
 
-      expect(formatter.formatToParts()).toEqual(formatter.formatToParts(new fakeGlobal.Date()));
-      
+      expect(formatter.formatToParts()).toEqual(
+        formatter.formatToParts(new fakeGlobal.Date())
+      );
+
       clock.uninstall();
     });
 
@@ -1258,11 +1262,13 @@ describe('Clock (acceptance)', function() {
       clock.install();
       clock.mockDate(new Date(2020, 11, 20, 10, 10)); // Dec 20, 2020
 
-      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', { timeZone: 'UTC' });
+      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
+        timeZone: 'UTC'
+      });
       const specificDate = new Date(2019, 0, 1);
 
       expect(formatter.format(specificDate)).toEqual('1/1/2019');
-      
+
       clock.uninstall();
     });
 
@@ -1270,28 +1276,25 @@ describe('Clock (acceptance)', function() {
       clock.install();
       clock.mockDate(new Date(2020, 11, 20, 10, 10)); // Dec 20, 2020
 
-      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', { timeZone: 'UTC' });
+      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
+        timeZone: 'UTC'
+      });
 
       expect(typeof formatter.resolvedOptions).toBe('function');
       expect(formatter.resolvedOptions().locale).toMatch(/en/);
-      
-      if (formatter.formatRange) {
-        expect(typeof formatter.formatRange).toBe('function');
-      }
-      
-      if (formatter.formatRangeToParts) {
-        expect(typeof formatter.formatRangeToParts).toBe('function');
-      }
-      
+      expect(typeof formatter.formatRange).toBe('function');
+      expect(typeof formatter.formatRangeToParts).toBe('function');
+
       clock.uninstall();
     });
 
     it('should restore original Intl after uninstall', function() {
       const originalIntl = fakeGlobal.Intl;
-      
+
       clock.install();
+      clock.mockDate(new Date(2020, 11, 20, 10, 10));
       expect(fakeGlobal.Intl).not.toBe(originalIntl);
-      
+
       clock.uninstall();
       expect(fakeGlobal.Intl).toBe(originalIntl);
     });
@@ -1304,8 +1307,10 @@ describe('Clock (acceptance)', function() {
         setInterval: jasmine.createSpy('setInterval'),
         clearInterval: jasmine.createSpy('clearInterval')
       };
-      
-      const mockDateWithoutIntl = new jasmineUnderTest.MockDate(fakeGlobalWithoutIntl);
+
+      const mockDateWithoutIntl = new jasmineUnderTest.MockDate(
+        fakeGlobalWithoutIntl
+      );
       const clockWithoutIntl = new jasmineUnderTest.Clock(
         fakeGlobalWithoutIntl,
         function() {

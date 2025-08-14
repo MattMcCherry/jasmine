@@ -1,6 +1,8 @@
 getJasmineRequireObj().MockDate = function(j$) {
   function MockDate(global) {
     let currentTime = 0;
+    let originalIntl = null;
+    let fakeIntl = null;
 
     if (!global || !global.Date) {
       this.install = function() {};
@@ -26,6 +28,14 @@ getJasmineRequireObj().MockDate = function(j$) {
       }
 
       global.Date = FakeDate;
+
+      if (global.Intl && typeof global.Intl === 'object') {
+        originalIntl = global.Intl;
+        fakeIntl = this.createIntl();
+        if (fakeIntl) {
+          global.Intl = fakeIntl;
+        }
+      }
     };
 
     this.tick = function(millis) {
@@ -36,6 +46,12 @@ getJasmineRequireObj().MockDate = function(j$) {
     this.uninstall = function() {
       currentTime = 0;
       global.Date = GlobalDate;
+
+      if (originalIntl !== null) {
+        global.Intl = originalIntl;
+        originalIntl = null;
+        fakeIntl = null;
+      }
     };
 
     this.createIntl = function() {
