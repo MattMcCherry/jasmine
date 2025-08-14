@@ -1239,8 +1239,6 @@ describe('Clock (acceptance)', function() {
       expect(formatter.format()).toEqual(
         formatter.format(new fakeGlobal.Date())
       );
-
-      clock.uninstall();
     });
 
     it('should use mocked date for Intl.DateTimeFormat.formatToParts() without arguments', function() {
@@ -1254,8 +1252,6 @@ describe('Clock (acceptance)', function() {
       expect(formatter.formatToParts()).toEqual(
         formatter.formatToParts(new fakeGlobal.Date())
       );
-
-      clock.uninstall();
     });
 
     it('should work correctly with explicit date parameters', function() {
@@ -1268,8 +1264,6 @@ describe('Clock (acceptance)', function() {
       const specificDate = new Date(2019, 0, 1);
 
       expect(formatter.format(specificDate)).toEqual('1/1/2019');
-
-      clock.uninstall();
     });
 
     it('should preserve other Intl.DateTimeFormat methods', function() {
@@ -1284,8 +1278,6 @@ describe('Clock (acceptance)', function() {
       expect(formatter.resolvedOptions().locale).toMatch(/en/);
       expect(typeof formatter.formatRange).toBe('function');
       expect(typeof formatter.formatRangeToParts).toBe('function');
-
-      clock.uninstall();
     });
 
     it('should restore original Intl after uninstall', function() {
