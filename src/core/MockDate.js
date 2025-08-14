@@ -38,6 +38,50 @@ getJasmineRequireObj().MockDate = function(j$) {
       global.Date = GlobalDate;
     };
 
+    this.createIntl = function() {
+      if (!global.Intl || typeof global.Intl !== 'object') {
+        return null;
+      }
+
+      const NativeIntl = global.Intl;
+      const ClockIntl = {};
+
+      Object.getOwnPropertyNames(NativeIntl).forEach(function(property) {
+        ClockIntl[property] = NativeIntl[property];
+      });
+
+      ClockIntl.DateTimeFormat = function() {
+        const realFormatter = new (Function.prototype.bind.apply(
+          NativeIntl.DateTimeFormat,
+          [null].concat(Array.prototype.slice.call(arguments))
+        ))();
+        const formatter = {};
+
+        ['formatRange', 'formatRangeToParts', 'resolvedOptions'].forEach(
+          function(method) {
+            formatter[method] = realFormatter[method].bind(realFormatter);
+          }
+        );
+
+        ['format', 'formatToParts'].forEach(function(method) {
+          formatter[method] = function(date) {
+            return realFormatter[method](date || new FakeDate());
+          };
+        });
+
+        return formatter;
+      };
+
+      ClockIntl.DateTimeFormat.prototype = Object.create(
+        NativeIntl.DateTimeFormat.prototype
+      );
+
+      ClockIntl.DateTimeFormat.supportedLocalesOf =
+        NativeIntl.DateTimeFormat.supportedLocalesOf;
+
+      return ClockIntl;
+    };
+
     createDateProperties();
 
     return this;

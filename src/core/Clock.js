@@ -29,6 +29,8 @@ getJasmineRequireObj().Clock = function() {
     let installed = false;
     let delayedFunctionScheduler;
     let timer;
+    let originalIntl = null;
+    let fakeIntl = null;
 
     this.FakeTimeout = FakeTimeout;
 
@@ -48,6 +50,15 @@ getJasmineRequireObj().Clock = function() {
       replace(global, fakeTimingFunctions);
       timer = fakeTimingFunctions;
       delayedFunctionScheduler = delayedFunctionSchedulerFactory();
+
+      if (global.Intl && typeof global.Intl === 'object') {
+        originalIntl = global.Intl;
+        fakeIntl = mockDate.createIntl();
+        if (fakeIntl) {
+          global.Intl = fakeIntl;
+        }
+      }
+
       installed = true;
 
       return this;
@@ -62,6 +73,13 @@ getJasmineRequireObj().Clock = function() {
     this.uninstall = function() {
       delayedFunctionScheduler = null;
       mockDate.uninstall();
+
+      if (originalIntl !== null) {
+        global.Intl = originalIntl;
+        originalIntl = null;
+        fakeIntl = null;
+      }
+
       replace(global, realTimingFunctions);
 
       timer = realTimingFunctions;

@@ -1051,4 +1051,120 @@ describe('Clock (acceptance)', function() {
 
     clock.tick(400);
   });
+
+  describe('Intl.DateTimeFormat integration', function() {
+    let clock, fakeGlobal, delayedFunctionScheduler, mockDate;
+
+    beforeEach(function() {
+      if (typeof Intl === 'undefined' || !Intl.DateTimeFormat) {
+        pending('Intl.DateTimeFormat not available in this environment');
+      }
+
+      fakeGlobal = {
+        Date: Date,
+        Intl: Intl,
+        setTimeout: jasmine.createSpy('setTimeout'),
+        clearTimeout: jasmine.createSpy('clearTimeout'),
+        setInterval: jasmine.createSpy('setInterval'),
+        clearInterval: jasmine.createSpy('clearInterval')
+      };
+      delayedFunctionScheduler = new jasmineUnderTest.DelayedFunctionScheduler();
+      mockDate = new jasmineUnderTest.MockDate(fakeGlobal);
+      clock = new jasmineUnderTest.Clock(
+        fakeGlobal,
+        function() {
+          return delayedFunctionScheduler;
+        },
+        mockDate
+      );
+    });
+
+    it('should use mocked date for Intl.DateTimeFormat.format() without arguments', function() {
+      clock.install();
+      clock.mockDate(new Date(2020, 11, 20, 10, 10)); // Dec 20, 2020
+
+      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', { timeZone: 'UTC' });
+
+      expect(formatter.format()).toEqual(formatter.format(new fakeGlobal.Date()));
+      
+      clock.uninstall();
+    });
+
+    it('should use mocked date for Intl.DateTimeFormat.formatToParts() without arguments', function() {
+      clock.install();
+      clock.mockDate(new Date(2020, 11, 20, 10, 10)); // Dec 20, 2020
+
+      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', { timeZone: 'UTC' });
+
+      expect(formatter.formatToParts()).toEqual(formatter.formatToParts(new fakeGlobal.Date()));
+      
+      clock.uninstall();
+    });
+
+    it('should work correctly with explicit date parameters', function() {
+      clock.install();
+      clock.mockDate(new Date(2020, 11, 20, 10, 10)); // Dec 20, 2020
+
+      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', { timeZone: 'UTC' });
+      const specificDate = new Date(2019, 0, 1);
+
+      expect(formatter.format(specificDate)).toEqual('1/1/2019');
+      
+      clock.uninstall();
+    });
+
+    it('should preserve other Intl.DateTimeFormat methods', function() {
+      clock.install();
+      clock.mockDate(new Date(2020, 11, 20, 10, 10)); // Dec 20, 2020
+
+      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', { timeZone: 'UTC' });
+
+      expect(typeof formatter.resolvedOptions).toBe('function');
+      expect(formatter.resolvedOptions().locale).toMatch(/en/);
+      
+      if (formatter.formatRange) {
+        expect(typeof formatter.formatRange).toBe('function');
+      }
+      
+      if (formatter.formatRangeToParts) {
+        expect(typeof formatter.formatRangeToParts).toBe('function');
+      }
+      
+      clock.uninstall();
+    });
+
+    it('should restore original Intl after uninstall', function() {
+      const originalIntl = fakeGlobal.Intl;
+      
+      clock.install();
+      expect(fakeGlobal.Intl).not.toBe(originalIntl);
+      
+      clock.uninstall();
+      expect(fakeGlobal.Intl).toBe(originalIntl);
+    });
+
+    it('should handle environment without Intl gracefully', function() {
+      const fakeGlobalWithoutIntl = {
+        Date: Date,
+        setTimeout: jasmine.createSpy('setTimeout'),
+        clearTimeout: jasmine.createSpy('clearTimeout'),
+        setInterval: jasmine.createSpy('setInterval'),
+        clearInterval: jasmine.createSpy('clearInterval')
+      };
+      
+      const mockDateWithoutIntl = new jasmineUnderTest.MockDate(fakeGlobalWithoutIntl);
+      const clockWithoutIntl = new jasmineUnderTest.Clock(
+        fakeGlobalWithoutIntl,
+        function() {
+          return delayedFunctionScheduler;
+        },
+        mockDateWithoutIntl
+      );
+
+      expect(function() {
+        clockWithoutIntl.install();
+        clockWithoutIntl.uninstall();
+      }).not.toThrow();
+    });
+  });
 });
