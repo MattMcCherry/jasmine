@@ -121,6 +121,58 @@ describe('Spec', function() {
     ]);
   });
 
+  describe('Late promise rejection handling', function() {
+    it('is enabled when the detectLateRejectionHandling param is true', function() {
+      const fakeQueueRunner = jasmine.createSpy('fakeQueueRunner');
+      const globalErrors = jasmine.createSpyObj('globalErrors', [
+        'reportUnhandledRejections'
+      ]);
+      const setTimeout = jasmine.createSpy('setTimeout');
+      const before = jasmine.createSpy('before');
+      const after = jasmine.createSpy('after');
+      const queueableFn = {
+        fn: jasmine.createSpy('test body').and.callFake(function() {
+          expect(before).toHaveBeenCalled();
+          expect(after).not.toHaveBeenCalled();
+        })
+      };
+      const spec = new jasmineUnderTest.Spec({
+        queueableFn,
+        setTimeout,
+        beforeAndAfterFns: function() {
+          return { befores: [before], afters: [after] };
+        }
+      });
+
+      spec.execute(fakeQueueRunner, globalErrors, null, false, false, true);
+
+      const options = fakeQueueRunner.calls.mostRecent().args[0];
+      expect(options.queueableFns).toEqual([
+        { fn: jasmine.any(Function) },
+        before,
+        queueableFn,
+        after,
+        { fn: jasmine.any(Function) },
+        {
+          fn: jasmine.any(Function),
+          type: 'specCleanup'
+        }
+      ]);
+
+      const done = jasmine.createSpy('done');
+      options.queueableFns[4].fn(done);
+      expect(globalErrors.reportUnhandledRejections).not.toHaveBeenCalled();
+      expect(done).not.toHaveBeenCalled();
+
+      expect(setTimeout).toHaveBeenCalledOnceWith(jasmine.any(Function));
+      setTimeout.calls.argsFor(0)[0]();
+      expect(globalErrors.reportUnhandledRejections).toHaveBeenCalled();
+      expect(globalErrors.reportUnhandledRejections).toHaveBeenCalledBefore(
+        done
+      );
+    });
+  });
+
   it("tells the queue runner that it's a leaf node", function() {
     const fakeQueueRunner = jasmine.createSpy('fakeQueueRunner'),
       spec = new jasmineUnderTest.Spec({
@@ -162,7 +214,7 @@ describe('Spec', function() {
         resultCallback: resultCallback
       });
 
-    spec.execute(fakeQueueRunner, 'cally-back', true);
+    spec.execute(fakeQueueRunner, null, 'cally-back', true);
 
     expect(fakeQueueRunner).toHaveBeenCalledWith(
       jasmine.objectContaining({
@@ -197,8 +249,8 @@ describe('Spec', function() {
         description: 'with a spec',
         parentSuiteId: 'suite1',
         filename: 'someSpecFile.js',
-        getSpecName: function() {
-          return 'a suite with a spec';
+        getPath: function() {
+          return ['a suite', 'with a spec'];
         },
         queueableFn: { fn: null }
       });
@@ -245,7 +297,7 @@ describe('Spec', function() {
         resultCallback: function() {}
       });
 
-    spec.execute(attrs => attrs.onComplete(), done);
+    spec.execute(attrs => attrs.onComplete(), null, done);
 
     expect(done).toHaveBeenCalled();
   });
@@ -260,11 +312,11 @@ describe('Spec', function() {
         resultCallback: function() {}
       });
 
-    function queueRunnerFactory(attrs) {
+    function runQueue(attrs) {
       spec.result.status = 'failed';
       attrs.onComplete();
     }
-    spec.execute(queueRunnerFactory, done);
+    spec.execute(runQueue, null, done);
 
     expect(done).toHaveBeenCalledWith(
       jasmine.any(jasmineUnderTest.StopExecutionError)
@@ -288,14 +340,14 @@ describe('Spec', function() {
       timer: timer
     });
 
-    function queueRunnerFactory(config) {
+    function runQueue(config) {
       config.queueableFns.forEach(function(qf) {
         qf.fn();
       });
       config.onComplete();
     }
 
-    spec.execute(queueRunnerFactory, function() {});
+    spec.execute(runQueue, null, function() {});
     expect(duration).toBe(77000);
   });
 
@@ -309,7 +361,7 @@ describe('Spec', function() {
         resultCallback: function() {}
       });
     spec.setSpecProperty('a', 4);
-    spec.execute(attrs => attrs.onComplete(), done);
+    spec.execute(attrs => attrs.onComplete(), null, done);
     expect(spec.result.properties).toEqual({ a: 4 });
   });
 
@@ -485,17 +537,33 @@ describe('Spec', function() {
   });
 
   it('can return its full name', function() {
-    const specNameSpy = jasmine
-      .createSpy('specNameSpy')
-      .and.returnValue('expected val');
+    const getPath = jasmine
+      .createSpy('getPath')
+      .and.returnValue(['expected', 'val']);
 
     const spec = new jasmineUnderTest.Spec({
-      getSpecName: specNameSpy,
+      getPath,
       queueableFn: { fn: null }
     });
 
     expect(spec.getFullName()).toBe('expected val');
-    expect(specNameSpy.calls.mostRecent().args[0].id).toEqual(spec.id);
+    expect(getPath.calls.mostRecent().args[0]).toBe(spec);
+  });
+
+  it('can return its full path', function() {
+    const getPath = jasmine
+      .createSpy('getPath')
+      .and.returnValue(['expected val']);
+
+    const spec = new jasmineUnderTest.Spec({
+      getPath,
+      queueableFn: { fn: null }
+    });
+
+    expect(spec.getPath()).toEqual(['expected val']);
+    expect(getPath.calls.mostRecent().args[0]).toBe(spec);
+
+    expect(spec.metadata.getPath()).toEqual(['expected val']);
   });
 
   describe('when a spec is marked pending during execution', function() {
@@ -581,20 +649,20 @@ describe('Spec', function() {
   });
 
   it('treats multiple done calls as late errors', function() {
-    const queueRunnerFactory = jasmine.createSpy('queueRunnerFactory'),
+    const runQueue = jasmine.createSpy('runQueue'),
       onLateError = jasmine.createSpy('onLateError'),
       spec = new jasmineUnderTest.Spec({
         onLateError: onLateError,
         queueableFn: { fn: function() {} },
-        getSpecName: function() {
-          return 'a spec';
+        getPath: function() {
+          return ['a spec'];
         }
       });
 
-    spec.execute(queueRunnerFactory);
+    spec.execute(runQueue);
 
-    expect(queueRunnerFactory).toHaveBeenCalled();
-    queueRunnerFactory.calls.argsFor(0)[0].onMultipleDone();
+    expect(runQueue).toHaveBeenCalled();
+    runQueue.calls.argsFor(0)[0].onMultipleDone();
 
     expect(onLateError).toHaveBeenCalledTimes(1);
     expect(onLateError.calls.argsFor(0)[0]).toBeInstanceOf(Error);
@@ -641,7 +709,7 @@ describe('Spec', function() {
             resultCallback: resultCallback
           });
 
-        function queueRunnerFactory(config) {
+        function runQueue(config) {
           spec.debugLog('msg');
           for (const fn of config.queueableFns) {
             fn.fn();
@@ -649,7 +717,7 @@ describe('Spec', function() {
           config.onComplete(false);
         }
 
-        spec.execute(queueRunnerFactory, function() {});
+        spec.execute(runQueue, null, function() {});
         expect(resultCallback).toHaveBeenCalledWith(
           jasmine.objectContaining({ debugLogs: null }),
           undefined
@@ -665,7 +733,7 @@ describe('Spec', function() {
             resultCallback: resultCallback
           });
 
-        function queueRunnerFactory(config) {
+        function runQueue(config) {
           spec.debugLog('msg');
           for (const fn of config.queueableFns) {
             fn.fn();
@@ -673,7 +741,7 @@ describe('Spec', function() {
           config.onComplete(false);
         }
 
-        spec.execute(queueRunnerFactory, function() {});
+        spec.execute(runQueue, null, function() {});
         expect(resultCallback).toHaveBeenCalled();
         expect(spec.result.debugLogs).toBeNull();
       });
@@ -694,7 +762,7 @@ describe('Spec', function() {
 
         timer.elapsed.and.returnValue(timestamp);
 
-        function queueRunnerFactory(config) {
+        function runQueue(config) {
           spec.debugLog('msg');
           spec.handleException(new Error('nope'));
           for (const fn of config.queueableFns) {
@@ -703,7 +771,7 @@ describe('Spec', function() {
           config.onComplete(true);
         }
 
-        spec.execute(queueRunnerFactory, function() {});
+        spec.execute(runQueue, null, function() {});
         expect(resultCallback).toHaveBeenCalledWith(
           jasmine.objectContaining({
             debugLogs: [{ message: 'msg', timestamp: timestamp }]

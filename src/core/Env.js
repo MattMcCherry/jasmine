@@ -11,6 +11,7 @@ getJasmineRequireObj().Env = function(j$) {
     options = options || {};
 
     const self = this;
+    const GlobalErrors = options.GlobalErrors || j$.GlobalErrors;
     const global = options.global || j$.getGlobal();
 
     const realSetTimeout = global.setTimeout;
@@ -24,7 +25,12 @@ getJasmineRequireObj().Env = function(j$) {
       new j$.MockDate(global)
     );
 
-    const globalErrors = new j$.GlobalErrors();
+    const globalErrors = new GlobalErrors(
+      undefined,
+      // Configuration is late-bound because GlobalErrors needs to be constructed
+      // before it's set to detect load-time errors in browsers
+      () => this.configuration()
+    );
     const installGlobalErrors = (function() {
       let installed = false;
       return function() {
@@ -43,7 +49,7 @@ getJasmineRequireObj().Env = function(j$) {
       globalErrors
     });
 
-    let reporter;
+    let reportDispatcher;
     let topSuite;
     let runner;
     let parallelLoadingState = null; // 'specs', 'helpers', or null for non-parallel
@@ -121,7 +127,7 @@ getJasmineRequireObj().Env = function(j$) {
         return true;
       },
       /**
-       * Whether or not reporters should hide disabled specs from their output.
+       * Whether reporters should hide disabled specs from their output.
        * Currently only supported by Jasmine's HTMLReporter
        * @name Configuration#hideDisabled
        * @since 3.3.0
@@ -148,17 +154,31 @@ getJasmineRequireObj().Env = function(j$) {
        */
       forbidDuplicateNames: false,
       /**
-       * Whether or not to issue warnings for certain deprecated functionality
+       * Whether to issue warnings for certain deprecated functionality
        * every time it's used. If not set or set to false, deprecation warnings
        * for methods that tend to be called frequently will be issued only once
-       * or otherwise throttled to to prevent the suite output from being flooded
+       * or otherwise throttled to prevent the suite output from being flooded
        * with warnings.
        * @name Configuration#verboseDeprecations
        * @since 3.6.0
        * @type Boolean
        * @default false
        */
-      verboseDeprecations: false
+      verboseDeprecations: false,
+
+      /**
+       * Whether to detect late promise rejection handling during spec
+       * execution. If this option is enabled, a promise rejection that triggers
+       * the JavaScript runtime's unhandled rejection event will not be treated
+       * as an error as long as it's handled before the spec finishes.
+       *
+       * This option is off by default because it imposes a performance penalty.
+       * @name Configuration#detectLateRejectionHandling
+       * @since 5.10.0
+       * @type Boolean
+       * @default false
+       */
+      detectLateRejectionHandling: false
     };
 
     if (!options.suppressLoadErrors) {
@@ -196,7 +216,8 @@ getJasmineRequireObj().Env = function(j$) {
         'stopOnSpecFailure',
         'stopSpecOnExpectationFailure',
         'autoCleanClosures',
-        'forbidDuplicateNames'
+        'forbidDuplicateNames',
+        'detectLateRejectionHandling'
       ];
 
       booleanProps.forEach(function(prop) {
@@ -385,7 +406,9 @@ getJasmineRequireObj().Env = function(j$) {
 
       // If we get here, all results have been reported and there's nothing we
       // can do except log the result and hope the user sees it.
+      // eslint-disable-next-line no-console
       console.error('Jasmine received a result after the suite finished:');
+      // eslint-disable-next-line no-console
       console.error(expectationResult);
     }
 
@@ -432,7 +455,7 @@ getJasmineRequireObj().Env = function(j$) {
       deprecator.addDeprecationWarning(runable, deprecation, options);
     };
 
-    function queueRunnerFactory(options) {
+    function runQueue(options) {
       options.clearStack = options.clearStack || clearStack;
       options.timeout = {
         setTimeout: realSetTimeout,
@@ -456,7 +479,7 @@ getJasmineRequireObj().Env = function(j$) {
       onLateError: recordLateError,
       specResultCallback,
       specStarted,
-      queueRunnerFactory
+      runQueue
     });
     topSuite = suiteBuilder.topSuite;
     const deprecator = new j$.Deprecator(topSuite);
@@ -479,11 +502,11 @@ getJasmineRequireObj().Env = function(j$) {
      * @interface Reporter
      * @see custom_reporter
      */
-    reporter = new j$.ReportDispatcher(
+    reportDispatcher = new j$.ReportDispatcher(
       j$.reporterEvents,
       function(options) {
         options.SkipPolicy = j$.NeverSkipPolicy;
-        return queueRunnerFactory(options);
+        return runQueue(options);
       },
       recordLateError
     );
@@ -493,8 +516,10 @@ getJasmineRequireObj().Env = function(j$) {
       totalSpecsDefined: () => suiteBuilder.totalSpecsDefined,
       focusedRunables: () => suiteBuilder.focusedRunables,
       runableResources,
-      reporter,
-      queueRunnerFactory,
+      reportDispatcher,
+      runQueue,
+      TreeProcessor: j$.TreeProcessor,
+      globalErrors,
       getConfig: () => config,
       reportSpecDone
     });
@@ -559,7 +584,7 @@ getJasmineRequireObj().Env = function(j$) {
         throw new Error('Reporters cannot be added via Env in parallel mode');
       }
 
-      reporter.addReporter(reporterToAdd);
+      reportDispatcher.addReporter(reporterToAdd);
     };
 
     /**
@@ -571,7 +596,7 @@ getJasmineRequireObj().Env = function(j$) {
      * @see custom_reporter
      */
     this.provideFallbackReporter = function(reporterToAdd) {
-      reporter.provideFallbackReporter(reporterToAdd);
+      reportDispatcher.provideFallbackReporter(reporterToAdd);
     };
 
     /**
@@ -585,7 +610,7 @@ getJasmineRequireObj().Env = function(j$) {
         throw new Error('Reporters cannot be removed via Env in parallel mode');
       }
 
-      reporter.clearReporters();
+      reportDispatcher.clearReporters();
     };
 
     /**
@@ -752,12 +777,12 @@ getJasmineRequireObj().Env = function(j$) {
     function specStarted(spec, suite, next) {
       runner.currentSpec = spec;
       runableResources.initForRunable(spec.id, suite.id);
-      reporter.specStarted(spec.result).then(next);
+      reportDispatcher.specStarted(spec.result).then(next);
     }
 
     function reportSpecDone(spec, result, next) {
       spec.reportedDone = true;
-      reporter.specDone(result).then(next);
+      reportDispatcher.specDone(result).then(next);
     }
 
     this.it = function(description, fn, timeout) {

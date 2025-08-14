@@ -469,6 +469,24 @@ describe('Matchers (Integration)', function() {
     });
   });
 
+  describe('toBeNullish', function() {
+    verifyPasses(function(env) {
+      env.expect(undefined).toBeNullish();
+    });
+
+    verifyPasses(function(env) {
+      env.expect(null).toBeNullish();
+    });
+
+    verifyFails(function(env) {
+      env.expect(1).toBeNullish();
+    });
+
+    verifyFails(function(env) {
+      env.expect('').toBeNullish();
+    });
+  });
+
   describe('toContain', function() {
     verifyPasses(function(env) {
       env.addCustomEqualityTester(function(a, b) {
@@ -621,6 +639,20 @@ describe('Matchers (Integration)', function() {
     });
   });
 
+  describe('toHaveClasses', function() {
+    verifyPasses(function(env) {
+      const el = specHelpers.domHelpers.createElementWithClassName(
+        'foo bar baz'
+      );
+      env.expect(el).toHaveClasses(['bar', 'baz']);
+    });
+
+    verifyFails(function(env) {
+      const el = specHelpers.domHelpers.createElementWithClassName('foo bar');
+      env.expect(el).toHaveClasses(['bar', 'baz']);
+    });
+  });
+
   describe('toHaveSpyInteractions', function() {
     let spyObj;
     beforeEach(function() {
@@ -640,6 +672,23 @@ describe('Matchers (Integration)', function() {
     verifyFails(function(env) {
       spyObj.otherMethod();
       env.expect(spyObj).toHaveSpyInteractions();
+    });
+  });
+
+  describe('toHaveNoOtherSpyInteractions', function() {
+    let spyObj;
+
+    beforeEach(function() {
+      spyObj = env.createSpyObj('NewClass', ['spyA', 'spyB']);
+    });
+
+    verifyPasses(function(env) {
+      env.expect(spyObj).toHaveNoOtherSpyInteractions();
+    });
+
+    verifyFails(function(env) {
+      spyObj.spyA();
+      env.expect(spyObj).toHaveNoOtherSpyInteractions();
     });
   });
 

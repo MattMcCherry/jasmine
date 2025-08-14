@@ -31,13 +31,14 @@ getJasmineRequireObj().DiffBuilder = function(j$) {
 
         const actualCustom = this.prettyPrinter_.customFormat_(actual);
         const expectedCustom = this.prettyPrinter_.customFormat_(expected);
-        const useCustom = !(
-          j$.util.isUndefined(actualCustom) &&
-          j$.util.isUndefined(expectedCustom)
-        );
+        const useCustom =
+          actualCustom !== undefined || expectedCustom !== undefined;
 
         if (useCustom) {
-          messages.push(wrapPrettyPrinted(actualCustom, expectedCustom, path));
+          const prettyActual = actualCustom || this.prettyPrinter_(actual);
+          const prettyExpected =
+            expectedCustom || this.prettyPrinter_(expected);
+          messages.push(wrapPrettyPrinted(prettyActual, prettyExpected, path));
           return false; // don't recurse further
         }
 

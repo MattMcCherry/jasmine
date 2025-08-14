@@ -1,76 +1,95 @@
-getJasmineRequireObj().TreeProcessor = function() {
-  function TreeProcessor(attrs) {
-    const tree = attrs.tree;
-    const runnableIds = attrs.runnableIds;
-    const queueRunnerFactory = attrs.queueRunnerFactory;
-    const nodeStart = attrs.nodeStart || function() {};
-    const nodeComplete = attrs.nodeComplete || function() {};
-    const failSpecWithNoExpectations = !!attrs.failSpecWithNoExpectations;
-    const orderChildren =
-      attrs.orderChildren ||
-      function(node) {
-        return node.children;
-      };
-    const excludeNode =
-      attrs.excludeNode ||
-      function(node) {
-        return false;
-      };
-    let stats = { valid: true };
-    let processed = false;
-    const defaultMin = Infinity;
-    const defaultMax = 1 - Infinity;
+getJasmineRequireObj().TreeProcessor = function(j$) {
+  const defaultMin = Infinity;
+  const defaultMax = 1 - Infinity;
 
-    this.processTree = function() {
-      processNode(tree, true);
-      processed = true;
-      return stats;
-    };
+  class TreeProcessor {
+    #tree;
+    #runQueue;
+    #runnableIds;
+    #nodeStart;
+    #nodeComplete;
+    #failSpecWithNoExpectations;
+    #detectLateRejectionHandling;
+    #globalErrors;
+    #orderChildren;
+    #excludeNode;
+    #stats;
+    #processed;
 
-    this.execute = async function() {
-      if (!processed) {
+    constructor(attrs) {
+      this.#tree = attrs.tree;
+      this.#runnableIds = attrs.runnableIds;
+      this.#runQueue = attrs.runQueue;
+      this.#nodeStart = attrs.nodeStart || function() {};
+      this.#nodeComplete = attrs.nodeComplete || function() {};
+      this.#failSpecWithNoExpectations = !!attrs.failSpecWithNoExpectations;
+      this.#detectLateRejectionHandling = !!attrs.detectLateRejectionHandling;
+      this.#globalErrors = attrs.globalErrors;
+
+      this.#orderChildren =
+        attrs.orderChildren ||
+        function(node) {
+          return node.children;
+        };
+      this.#excludeNode =
+        attrs.excludeNode ||
+        function(node) {
+          return false;
+        };
+      this.#stats = { valid: true };
+      this.#processed = false;
+    }
+
+    processTree() {
+      this.#processNode(this.#tree, true);
+      this.#processed = true;
+      return this.#stats;
+    }
+
+    async execute() {
+      if (!this.#processed) {
         this.processTree();
       }
 
-      if (!stats.valid) {
-        throw 'invalid order';
+      if (!this.#stats.valid) {
+        throw new Error('invalid order');
       }
 
-      const childFns = wrapChildren(tree, 0);
+      const childFns = this.#wrapChildren(this.#tree, 0);
 
-      await new Promise(function(resolve) {
-        queueRunnerFactory({
+      await new Promise(resolve => {
+        this.#runQueue({
           queueableFns: childFns,
-          userContext: tree.sharedUserContext(),
+          userContext: this.#tree.sharedUserContext(),
           onException: function() {
-            tree.handleException.apply(tree, arguments);
-          },
+            this.#tree.handleException.apply(this.#tree, arguments);
+          }.bind(this),
           onComplete: resolve,
-          onMultipleDone: tree.onMultipleDone
-            ? tree.onMultipleDone.bind(tree)
+          onMultipleDone: this.#tree.onMultipleDone
+            ? this.#tree.onMultipleDone.bind(this.#tree)
             : null
         });
       });
-    };
+    }
 
-    function runnableIndex(id) {
-      for (let i = 0; i < runnableIds.length; i++) {
-        if (runnableIds[i] === id) {
+    #runnableIndex(id) {
+      for (let i = 0; i < this.#runnableIds.length; i++) {
+        if (this.#runnableIds[i] === id) {
           return i;
         }
       }
     }
 
-    function processNode(node, parentExcluded) {
-      const executableIndex = runnableIndex(node.id);
+    #processNode(node, parentExcluded) {
+      const executableIndex = this.#runnableIndex(node.id);
 
       if (executableIndex !== undefined) {
         parentExcluded = false;
       }
 
       if (!node.children) {
-        const excluded = parentExcluded || excludeNode(node);
-        stats[node.id] = {
+        const excluded = parentExcluded || this.#excludeNode(node);
+        this.#stats[node.id] = {
           excluded: excluded,
           willExecute: !excluded && !node.markedPending,
           segments: [
@@ -86,138 +105,82 @@ getJasmineRequireObj().TreeProcessor = function() {
       } else {
         let hasExecutableChild = false;
 
-        const orderedChildren = orderChildren(node);
+        const orderedChildren = this.#orderChildren(node);
 
         for (let i = 0; i < orderedChildren.length; i++) {
           const child = orderedChildren[i];
 
-          processNode(child, parentExcluded);
+          this.#processNode(child, parentExcluded);
 
-          if (!stats.valid) {
+          if (!this.#stats.valid) {
             return;
           }
 
-          const childStats = stats[child.id];
+          const childStats = this.#stats[child.id];
 
           hasExecutableChild = hasExecutableChild || childStats.willExecute;
         }
 
-        stats[node.id] = {
+        this.#stats[node.id] = {
           excluded: parentExcluded,
           willExecute: hasExecutableChild
         };
 
-        segmentChildren(node, orderedChildren, stats[node.id], executableIndex);
+        segmentChildren(node, orderedChildren, this.#stats, executableIndex);
 
-        if (!node.canBeReentered() && stats[node.id].segments.length > 1) {
-          stats = { valid: false };
-        }
-      }
-    }
-
-    function startingMin(executableIndex) {
-      return executableIndex === undefined ? defaultMin : executableIndex;
-    }
-
-    function startingMax(executableIndex) {
-      return executableIndex === undefined ? defaultMax : executableIndex;
-    }
-
-    function segmentChildren(
-      node,
-      orderedChildren,
-      nodeStats,
-      executableIndex
-    ) {
-      let currentSegment = {
-          index: 0,
-          owner: node,
-          nodes: [],
-          min: startingMin(executableIndex),
-          max: startingMax(executableIndex)
-        },
-        result = [currentSegment],
-        lastMax = defaultMax,
-        orderedChildSegments = orderChildSegments(orderedChildren);
-
-      function isSegmentBoundary(minIndex) {
-        return (
-          lastMax !== defaultMax &&
-          minIndex !== defaultMin &&
-          lastMax < minIndex - 1
-        );
-      }
-
-      for (let i = 0; i < orderedChildSegments.length; i++) {
-        const childSegment = orderedChildSegments[i],
-          maxIndex = childSegment.max,
-          minIndex = childSegment.min;
-
-        if (isSegmentBoundary(minIndex)) {
-          currentSegment = {
-            index: result.length,
-            owner: node,
-            nodes: [],
-            min: defaultMin,
-            max: defaultMax
-          };
-          result.push(currentSegment);
-        }
-
-        currentSegment.nodes.push(childSegment);
-        currentSegment.min = Math.min(currentSegment.min, minIndex);
-        currentSegment.max = Math.max(currentSegment.max, maxIndex);
-        lastMax = maxIndex;
-      }
-
-      nodeStats.segments = result;
-    }
-
-    function orderChildSegments(children) {
-      const specifiedOrder = [],
-        unspecifiedOrder = [];
-
-      for (let i = 0; i < children.length; i++) {
-        const child = children[i],
-          segments = stats[child.id].segments;
-
-        for (let j = 0; j < segments.length; j++) {
-          const seg = segments[j];
-
-          if (seg.min === defaultMin) {
-            unspecifiedOrder.push(seg);
+        if (this.#stats[node.id].segments.length > 1) {
+          if (node.canBeReentered()) {
+            j$.getEnv().deprecated(
+              'The specified spec/suite order splits up a suite, running unrelated specs in the middle of it. This will become an error in a future release.'
+            );
           } else {
-            specifiedOrder.push(seg);
+            this.#stats = { valid: false };
+            throw new Error(
+              'Invalid order: would cause a beforeAll or afterAll to be run multiple times'
+            );
           }
         }
       }
-
-      specifiedOrder.sort(function(a, b) {
-        return a.min - b.min;
-      });
-
-      return specifiedOrder.concat(unspecifiedOrder);
     }
 
-    function executeNode(node, segmentNumber) {
+    #wrapChildren(node, segmentNumber) {
+      const result = [],
+        segmentChildren = this.#stats[node.id].segments[segmentNumber].nodes;
+
+      for (let i = 0; i < segmentChildren.length; i++) {
+        result.push(
+          this.#executeNode(segmentChildren[i].owner, segmentChildren[i].index)
+        );
+      }
+
+      if (!this.#stats[node.id].willExecute) {
+        return result;
+      }
+
+      return node.beforeAllFns.concat(result).concat(node.afterAllFns);
+    }
+
+    #executeNode(node, segmentNumber) {
       if (node.children) {
         return {
           fn: function(done) {
             const onStart = {
-              fn: function(next) {
-                nodeStart(node, next);
+              fn: next => {
+                this.#nodeStart(node, next);
               }
             };
 
-            queueRunnerFactory({
+            this.#runQueue({
               onComplete: function() {
                 const args = Array.prototype.slice.call(arguments, [0]);
                 node.cleanupBeforeAfter();
-                nodeComplete(node, node.getResult(), function() {
+                this.#nodeComplete(node, node.getResult(), () => {
                   done.apply(undefined, args);
                 });
-              },
-              queueableFns: [onStart].concat(wrapChildren(node, segmentNumber)),
+              }.bind(this),
+              queueableFns: [onStart].concat(
+                this.#wrapChildren(node, segmentNumber)
+              ),
               userContext: node.sharedUserContext(),
               onException: function() {
                 node.handleException.apply(node, arguments);
@@ -226,38 +189,102 @@ getJasmineRequireObj().TreeProcessor = function() {
                 ? node.onMultipleDone.bind(node)
                 : null
             });
-          }
+          }.bind(this)
         };
       } else {
         return {
-          fn: function(done) {
+          fn: done => {
             node.execute(
-              queueRunnerFactory,
+              this.#runQueue,
+              this.#globalErrors,
               done,
-              stats[node.id].excluded,
-              failSpecWithNoExpectations
+              this.#stats[node.id].excluded,
+              this.#failSpecWithNoExpectations,
+              this.#detectLateRejectionHandling
             );
           }
         };
       }
     }
+  }
 
-    function wrapChildren(node, segmentNumber) {
-      const result = [],
-        segmentChildren = stats[node.id].segments[segmentNumber].nodes;
+  function segmentChildren(node, orderedChildren, stats, executableIndex) {
+    let currentSegment = {
+        index: 0,
+        owner: node,
+        nodes: [],
+        min: startingMin(executableIndex),
+        max: startingMax(executableIndex)
+      },
+      result = [currentSegment],
+      lastMax = defaultMax,
+      orderedChildSegments = orderChildSegments(orderedChildren, stats);
 
-      for (let i = 0; i < segmentChildren.length; i++) {
-        result.push(
-          executeNode(segmentChildren[i].owner, segmentChildren[i].index)
-        );
-      }
-
-      if (!stats[node.id].willExecute) {
-        return result;
-      }
-
-      return node.beforeAllFns.concat(result).concat(node.afterAllFns);
+    function isSegmentBoundary(minIndex) {
+      return (
+        lastMax !== defaultMax &&
+        minIndex !== defaultMin &&
+        lastMax < minIndex - 1
+      );
     }
+
+    for (let i = 0; i < orderedChildSegments.length; i++) {
+      const childSegment = orderedChildSegments[i],
+        maxIndex = childSegment.max,
+        minIndex = childSegment.min;
+
+      if (isSegmentBoundary(minIndex)) {
+        currentSegment = {
+          index: result.length,
+          owner: node,
+          nodes: [],
+          min: defaultMin,
+          max: defaultMax
+        };
+        result.push(currentSegment);
+      }
+
+      currentSegment.nodes.push(childSegment);
+      currentSegment.min = Math.min(currentSegment.min, minIndex);
+      currentSegment.max = Math.max(currentSegment.max, maxIndex);
+      lastMax = maxIndex;
+    }
+
+    stats[node.id].segments = result;
+  }
+
+  function orderChildSegments(children, stats) {
+    const specifiedOrder = [],
+      unspecifiedOrder = [];
+
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i],
+        segments = stats[child.id].segments;
+
+      for (let j = 0; j < segments.length; j++) {
+        const seg = segments[j];
+
+        if (seg.min === defaultMin) {
+          unspecifiedOrder.push(seg);
+        } else {
+          specifiedOrder.push(seg);
+        }
+      }
+    }
+
+    specifiedOrder.sort(function(a, b) {
+      return a.min - b.min;
+    });
+
+    return specifiedOrder.concat(unspecifiedOrder);
+  }
+
+  function startingMin(executableIndex) {
+    return executableIndex === undefined ? defaultMin : executableIndex;
+  }
+
+  function startingMax(executableIndex) {
+    return executableIndex === undefined ? defaultMax : executableIndex;
   }
 
   return TreeProcessor;

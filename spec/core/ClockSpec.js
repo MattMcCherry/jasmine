@@ -687,6 +687,159 @@ describe('Clock (acceptance)', function() {
     expect(recurring1.calls.count()).toBe(4);
   });
 
+  describe('auto tick mode', () => {
+    let delayedFunctionScheduler;
+    let mockDate;
+    let clock;
+
+    beforeEach(() => {
+      delayedFunctionScheduler = new jasmineUnderTest.DelayedFunctionScheduler();
+      mockDate = {
+        install: function() {},
+        tick: function() {},
+        uninstall: function() {}
+      };
+      // window setTimeout to window to make firefox happy
+      const _setTimeout =
+        typeof window !== 'undefined' ? setTimeout.bind(window) : setTimeout;
+      // passing a fake global allows us to preserve the real timing functions for use in tests
+      const _global = { setTimeout: _setTimeout, setInterval: setInterval };
+      clock = new jasmineUnderTest.Clock(
+        _global,
+        function() {
+          return delayedFunctionScheduler;
+        },
+        mockDate
+      );
+      clock.install().autoTick();
+    });
+
+    afterEach(() => {
+      clock.uninstall();
+    });
+
+    it('flushes microtask queue between macrotasks', async () => {
+      const log = [];
+      await new Promise(r => clock.setTimeout(r, 10)).then(() => {
+        log.push(1);
+        Promise.resolve().then(() => log.push(2));
+        Promise.resolve().then(() => log.push(3));
+      });
+      await new Promise(r => clock.setTimeout(r, 10)).then(() => {
+        log.push(4);
+        Promise.resolve().then(() => log.push(5));
+      });
+      expect(log).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('can run setTimeouts/setIntervals asynchronously', function() {
+      const recurring = jasmine.createSpy('recurring'),
+        fn1 = jasmine.createSpy('fn1'),
+        fn2 = jasmine.createSpy('fn2'),
+        fn3 = jasmine.createSpy('fn3');
+
+      const intervalId = clock.setInterval(recurring, 50);
+      // In a microtask, add some timeouts.
+      Promise.resolve()
+        .then(function() {
+          return new Promise(function(resolve) {
+            clock.setTimeout(resolve, 25);
+          });
+        })
+        .then(function() {
+          fn1();
+          return new Promise(function(resolve) {
+            clock.setTimeout(resolve, 200);
+          });
+        })
+        .then(function() {
+          fn2();
+          return new Promise(function(resolve) {
+            clock.setTimeout(resolve, 100);
+          });
+        })
+        .then(function() {
+          fn3();
+        });
+
+      expect(recurring).not.toHaveBeenCalled();
+      expect(fn1).not.toHaveBeenCalled();
+      expect(fn2).not.toHaveBeenCalled();
+      expect(fn3).not.toHaveBeenCalled();
+
+      return new Promise(resolve => clock.setTimeout(resolve, 50))
+        .then(function() {
+          expect(recurring).toHaveBeenCalledTimes(1);
+          expect(fn1).toHaveBeenCalled();
+          expect(fn2).not.toHaveBeenCalled();
+          expect(fn3).not.toHaveBeenCalled();
+
+          return new Promise(resolve => clock.setTimeout(resolve, 175));
+        })
+        .then(function() {
+          expect(recurring).toHaveBeenCalledTimes(4);
+          expect(fn1).toHaveBeenCalled();
+          expect(fn2).toHaveBeenCalled();
+          expect(fn3).not.toHaveBeenCalled();
+
+          clock.clearInterval(intervalId);
+          return new Promise(resolve => clock.setTimeout(resolve, 100));
+        })
+        .then(function() {
+          expect(recurring).toHaveBeenCalledTimes(4);
+          expect(fn1).toHaveBeenCalled();
+          expect(fn2).toHaveBeenCalled();
+          expect(fn3).toHaveBeenCalled();
+        });
+    });
+
+    it('aborts auto ticking when uninstalled, even if installed again synchonrously', async () => {
+      clock.uninstall();
+      clock.install();
+
+      let resolved = false;
+      const promise = new Promise(resolve => {
+        clock.setTimeout(resolve, 1);
+      }).then(() => {
+        resolved = true;
+      });
+
+      // wait some real time and verify that the clock did not flush the timer above automatically
+      await new Promise(resolve => setTimeout(resolve, 2));
+      expect(resolved).toBe(false);
+
+      // enabling auto tick again will flush the timer
+      clock.autoTick();
+      await expectAsync(promise).toBeResolved();
+    });
+
+    it('speeds up the execution of the timers in all browsers', async () => {
+      const startTimeMs = performance.now() / 1000;
+      await new Promise(resolve => clock.setTimeout(resolve, 5000));
+      await new Promise(resolve => clock.setTimeout(resolve, 5000));
+      await new Promise(resolve => clock.setTimeout(resolve, 5000));
+      await new Promise(resolve => clock.setTimeout(resolve, 5000));
+      const endTimeMs = performance.now() / 1000;
+      // Ensure we didn't take 20s to complete the awaits above and, in fact, can do it in a fraction of a second
+      expect(endTimeMs - startTimeMs).toBeLessThan(100);
+    });
+
+    it('is easy to test async functions with interleaved timers and microtasks', async () => {
+      async function blackBoxWithLotsOfAsyncStuff() {
+        await new Promise(r => clock.setTimeout(r, 10));
+        await Promise.resolve();
+        await Promise.resolve();
+        await new Promise(r => clock.setTimeout(r, 20));
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        return 'done';
+      }
+      const result = await blackBoxWithLotsOfAsyncStuff();
+      expect(result).toBe('done');
+    });
+  });
+
   it('can clear a previously set timeout', function() {
     const clearedFn = jasmine.createSpy('clearedFn'),
       delayedFunctionScheduler = new jasmineUnderTest.DelayedFunctionScheduler(),

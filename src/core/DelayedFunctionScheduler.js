@@ -6,7 +6,7 @@ getJasmineRequireObj().DelayedFunctionScheduler = function(j$) {
     this.scheduledLookup_ = [];
     this.scheduledFunctions_ = {};
     this.currentTime_ = 0;
-    this.delayedFnCount_ = 0;
+    this.delayedFnStartCount_ = 1e12; // arbitrarily large number to avoid collisions with native timer IDs;
     this.deletedKeys_ = [];
 
     this.tick = function(millis, tickDate) {
@@ -38,7 +38,7 @@ getJasmineRequireObj().DelayedFunctionScheduler = function(j$) {
       }
 
       millis = millis || 0;
-      timeoutKey = timeoutKey || ++this.delayedFnCount_;
+      timeoutKey = timeoutKey || ++this.delayedFnStartCount_;
       runAtMillis = runAtMillis || this.currentTime_ + millis;
 
       const funcToSchedule = {
@@ -85,6 +85,37 @@ getJasmineRequireObj().DelayedFunctionScheduler = function(j$) {
           break;
         }
       }
+    };
+
+    // Returns whether there are any scheduled functions.
+    // Returns true if there are any scheduled functions, otherwise false.
+    this.isEmpty = function() {
+      return this.scheduledFunctions_.length === 0;
+    };
+
+    // Runs the next timeout in the queue, advancing the clock.
+    this.runNextQueuedFunction = function(tickDate) {
+      if (this.scheduledLookup_.length === 0) {
+        return;
+      }
+
+      const newCurrentTime = this.scheduledLookup_[0];
+      if (newCurrentTime >= this.currentTime_) {
+        tickDate(newCurrentTime - this.currentTime_);
+        this.currentTime_ = newCurrentTime;
+      }
+
+      const funcsAtTime = this.scheduledFunctions_[this.currentTime_];
+      const fn = funcsAtTime.shift();
+      if (funcsAtTime.length === 0) {
+        delete this.scheduledFunctions_[this.currentTime_];
+        this.scheduledLookup_.splice(0, 1);
+      }
+
+      if (fn.recurring) {
+        this.reschedule_(fn);
+      }
+      fn.funcToCall.apply(null, fn.params || []);
     };
 
     return this;

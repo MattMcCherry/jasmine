@@ -205,7 +205,6 @@ describe('Env', function() {
 
     it('throws an error when given arguments', function() {
       expect(function() {
-        // eslint-disable-next-line no-unused-vars
         env.describe('done method', function(done) {});
       }).toThrowError('describe does not expect any arguments');
     });
@@ -626,9 +625,12 @@ describe('Env', function() {
         'popListener',
         'removeOverrideListener'
       ]);
-      spyOn(jasmineUnderTest, 'GlobalErrors').and.returnValue(globalErrors);
       env.cleanup_();
-      env = new jasmineUnderTest.Env();
+      env = new jasmineUnderTest.Env({
+        GlobalErrors: function() {
+          return globalErrors;
+        }
+      });
       expect(globalErrors.install).toHaveBeenCalled();
     });
   });
@@ -642,9 +644,13 @@ describe('Env', function() {
         'popListener',
         'removeOverrideListener'
       ]);
-      spyOn(jasmineUnderTest, 'GlobalErrors').and.returnValue(globalErrors);
       env.cleanup_();
-      env = new jasmineUnderTest.Env({ suppressLoadErrors: true });
+      env = new jasmineUnderTest.Env({
+        suppressLoadErrors: true,
+        GlobalErrors: function() {
+          return globalErrors;
+        }
+      });
       expect(globalErrors.install).not.toHaveBeenCalled();
       env.execute();
       expect(globalErrors.install).toHaveBeenCalled();

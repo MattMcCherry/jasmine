@@ -2,6 +2,7 @@ getJasmineRequireObj().Spec = function(j$) {
   function Spec(attrs) {
     this.expectationFactory = attrs.expectationFactory;
     this.asyncExpectationFactory = attrs.asyncExpectationFactory;
+    this.setTimeout = attrs.setTimeout;
     this.resultCallback = attrs.resultCallback || function() {};
     this.id = attrs.id;
     this.filename = attrs.filename;
@@ -21,11 +22,11 @@ getJasmineRequireObj().Spec = function(j$) {
     this.onStart = attrs.onStart || function() {};
     this.autoCleanClosures =
       attrs.autoCleanClosures === undefined ? true : !!attrs.autoCleanClosures;
-    this.getSpecName =
-      attrs.getSpecName ||
-      function() {
-        return '';
-      };
+
+    this.getPath = function() {
+      return attrs.getPath ? attrs.getPath(this) : [];
+    };
+
     this.onLateError = attrs.onLateError || function() {};
     this.catchingExceptions =
       attrs.catchingExceptions ||
@@ -71,10 +72,12 @@ getJasmineRequireObj().Spec = function(j$) {
   };
 
   Spec.prototype.execute = function(
-    queueRunnerFactory,
+    runQueue,
+    globalErrors,
     onComplete,
     excluded,
-    failSpecWithNoExp
+    failSpecWithNoExp,
+    detectLateRejectionHandling
   ) {
     const onStart = {
       fn: done => {
@@ -135,9 +138,24 @@ getJasmineRequireObj().Spec = function(j$) {
     }
 
     runnerConfig.queueableFns.unshift(onStart);
+
+    if (detectLateRejectionHandling) {
+      // Conditional because the setTimeout imposes a significant performance
+      // penalty in suites with lots of fast specs.
+      runnerConfig.queueableFns.push({
+        fn: done => {
+          // setTimeout is necessary to trigger rejectionhandled events
+          // TODO: let clearStack know about this so it doesn't do redundant setTimeouts
+          this.setTimeout(function() {
+            globalErrors.reportUnhandledRejections();
+            done();
+          });
+        }
+      });
+    }
     runnerConfig.queueableFns.push(complete);
 
-    queueRunnerFactory(runnerConfig);
+    runQueue(runnerConfig);
   };
 
   Spec.prototype.reset = function() {
@@ -147,7 +165,12 @@ getJasmineRequireObj().Spec = function(j$) {
      * @property {String} description - The description passed to the {@link it} that created this spec.
      * @property {String} fullName - The full description including all ancestors of this spec.
      * @property {String|null} parentSuiteId - The ID of the suite containing this spec, or null if this spec is not in a describe().
-     * @property {String} filename - The name of the file the spec was defined in.
+     * @property {String} filename - Deprecated. The name of the file the spec was defined in.
+     * Note: The value may be incorrect if zone.js is installed or
+     * `it`/`fit`/`xit` have been replaced with versions that don't maintain the
+     *  same call stack height as the originals. This property may be removed in
+     *  a future version unless there is enough user interest in keeping it.
+     *  See {@link https://github.com/jasmine/jasmine/issues/2065}.
      * @property {ExpectationResult[]} failedExpectations - The list of expectations that failed during execution of this spec.
      * @property {ExpectationResult[]} passedExpectations - The list of expectations that passed during execution of this spec.
      * @property {ExpectationResult[]} deprecationWarnings - The list of deprecation warnings that occurred during execution this spec.
@@ -251,7 +274,7 @@ getJasmineRequireObj().Spec = function(j$) {
   };
 
   Spec.prototype.getFullName = function() {
-    return this.getSpecName(this);
+    return this.getPath().join(' ');
   };
 
   Spec.prototype.addDeprecationWarning = function(deprecation) {
@@ -305,6 +328,10 @@ getJasmineRequireObj().Spec = function(j$) {
    * @since 2.0.0
    */
   Object.defineProperty(Spec.prototype, 'metadata', {
+    // NOTE: Although most of jasmine-core only exposes these metadata objects,
+    // actual Spec instances are still passed to Configuration#specFilter. Until
+    // that is fixed, it's important to make sure that all metadata properties
+    // also exist in compatible form on the underlying Spec.
     get: function() {
       if (!this.metadata_) {
         this.metadata_ = {
@@ -333,7 +360,16 @@ getJasmineRequireObj().Spec = function(j$) {
            * @returns {string}
            * @since 2.0.0
            */
-          getFullName: this.getFullName.bind(this)
+          getFullName: this.getFullName.bind(this),
+
+          /**
+           * The full path of the spec, as an array of names.
+           * @name Spec#getPath
+           * @function
+           * @returns {Array.<string>}
+           * @since 5.7.0
+           */
+          getPath: this.getPath.bind(this)
         };
       }
 

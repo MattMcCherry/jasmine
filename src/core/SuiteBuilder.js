@@ -239,6 +239,7 @@ getJasmineRequireObj().SuiteBuilder = function(j$) {
       const config = this.env_.configuration();
       const suite = this.currentDeclarationSuite_;
       const parentSuiteId = suite === this.topSuite ? null : suite.id;
+      const global = j$.getGlobal();
       const spec = new j$.Spec({
         id: 'spec' + this.nextSpecId_++,
         filename,
@@ -246,13 +247,12 @@ getJasmineRequireObj().SuiteBuilder = function(j$) {
         beforeAndAfterFns: beforeAndAfterFns(suite),
         expectationFactory: this.expectationFactory_,
         asyncExpectationFactory: this.specAsyncExpectationFactory_,
+        setTimeout: global.setTimeout.bind(global),
         onLateError: this.onLateError_,
         resultCallback: (result, next) => {
           this.specResultCallback_(spec, result, next);
         },
-        getSpecName: function(spec) {
-          return getSpecName(spec, suite);
-        },
+        getPath: spec => this.getSpecPath_(spec, suite),
         onStart: (spec, next) => this.specStarted_(spec, suite, next),
         description: description,
         userContext: function() {
@@ -267,6 +267,17 @@ getJasmineRequireObj().SuiteBuilder = function(j$) {
         timer: new j$.Timer()
       });
       return spec;
+    }
+
+    getSpecPath_(spec, suite) {
+      const path = [spec.description];
+
+      while (suite && suite !== this.topSuite) {
+        path.unshift(suite.description);
+        suite = suite.parentSuite;
+      }
+
+      return path;
     }
 
     unfocusAncestor_() {
@@ -330,16 +341,6 @@ getJasmineRequireObj().SuiteBuilder = function(j$) {
         afters: afters
       };
     };
-  }
-
-  function getSpecName(spec, suite) {
-    const fullName = [spec.description],
-      suiteFullName = suite.getFullName();
-
-    if (suiteFullName !== '') {
-      fullName.unshift(suiteFullName);
-    }
-    return fullName.join(' ');
   }
 
   return SuiteBuilder;

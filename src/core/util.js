@@ -1,10 +1,6 @@
 getJasmineRequireObj().util = function(j$) {
   const util = {};
 
-  util.isUndefined = function(obj) {
-    return obj === void 0;
-  };
-
   util.clone = function(obj) {
     if (Object.prototype.toString.apply(obj) === '[object Array]') {
       return obj.slice();
@@ -52,16 +48,9 @@ getJasmineRequireObj().util = function(j$) {
     return Object.prototype.hasOwnProperty.call(obj, key);
   };
 
-  util.errorWithStack = function errorWithStack() {
-    // Don't throw and catch. That makes it harder for users to debug their
-    // code with exception breakpoints, and it's unnecessary since all
-    // supported environments populate new Error().stack
-    return new Error();
-  };
-
   function callerFile() {
-    const trace = new j$.StackTrace(util.errorWithStack());
-    return trace.frames[2].file;
+    const trace = new j$.StackTrace(new Error());
+    return trace.frames[1].file;
   }
 
   util.jasmineFile = (function() {

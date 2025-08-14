@@ -26,7 +26,8 @@ getJasmineRequireObj().Spy = function(j$) {
       const callData = {
         object: context,
         invocationOrder: nextOrder(),
-        args: Array.prototype.slice.apply(args)
+        args: Array.prototype.slice.apply(args),
+        verified: false
       };
 
       callTracker.track(callData);
@@ -160,7 +161,7 @@ getJasmineRequireObj().Spy = function(j$) {
             "Spy '" +
               strategyArgs.name +
               "' received a call with arguments " +
-              j$.basicPrettyPrinter_(Array.prototype.slice.call(args)) +
+              matchersUtil.pp(Array.prototype.slice.call(args)) +
               ' but all configured strategies specify other arguments.'
           );
         } else {

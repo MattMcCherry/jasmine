@@ -83,14 +83,26 @@ var getJasmineRequireObj = (function(jasmineGlobal) {
     j$.Suite = jRequire.Suite(j$);
     j$.SuiteBuilder = jRequire.SuiteBuilder(j$);
     j$.Timer = jRequire.Timer();
-    j$.TreeProcessor = jRequire.TreeProcessor();
+    j$.TreeProcessor = jRequire.TreeProcessor(j$);
     j$.version = jRequire.version();
     j$.Order = jRequire.Order();
     j$.DiffBuilder = jRequire.DiffBuilder(j$);
     j$.NullDiffBuilder = jRequire.NullDiffBuilder(j$);
     j$.ObjectPath = jRequire.ObjectPath(j$);
     j$.MismatchTree = jRequire.MismatchTree(j$);
-    j$.GlobalErrors = jRequire.GlobalErrors(j$);
+
+    // zone.js tries to monkey patch GlobalErrors in a way that is either a
+    // no-op or causes Jasmine to crash, depending on whether it's done before
+    // or after env creation. Prevent that.
+    const GlobalErrors = jRequire.GlobalErrors(j$);
+    Object.defineProperty(j$, 'GlobalErrors', {
+      enumerable: true,
+      configurable: false,
+      get() {
+        return GlobalErrors;
+      },
+      set() {}
+    });
 
     j$.Truthy = jRequire.Truthy(j$);
     j$.Falsy = jRequire.Falsy(j$);

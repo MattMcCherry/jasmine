@@ -4,6 +4,10 @@
 version: 2.1
 
 executors:
+  node24:
+    docker:
+      - image: cimg/node:24.0.0
+    working_directory: ~/workspace
   node22:
     docker:
       - image: cimg/node:22.0.0
@@ -14,7 +18,7 @@ executors:
     working_directory: ~/workspace
   node18:
     docker:
-      - image: cimg/node:18.0.0
+      - image: cimg/node:18.20.5
     working_directory: ~/workspace
 
 jobs:
@@ -61,7 +65,7 @@ jobs:
           at: .
       - run:
           name: Run tests in parallel
-          command: npx grunt execSpecsInParallel
+          command: npm run test:parallel
 
   test_browsers: &test_browsers
     executor: node18
@@ -71,12 +75,14 @@ jobs:
       - run:
           name: Install Sauce Connect
           command: |
-            cd /tmp
-            curl https://saucelabs.com/downloads/sc-4.7.1-linux.tar.gz | tar zxf -
-            chmod +x sc-4.7.1-linux/bin/sc
+            tmpdir=$(mktemp -d)
+            cd "$tmpdir"
+            curl https://saucelabs.com/downloads/sauce-connect/5.2.2/sauce-connect-5.2.2_linux.x86_64.tar.gz | tar zxf -
+            chmod +x sc
             mkdir ~/workspace/bin
-            cp sc-4.7.1-linux/bin/sc ~/workspace/bin
-            ~/workspace/bin/sc --version
+            cp sc ~/workspace/bin
+            echo "Sauce Connect version info:"
+            ~/workspace/bin/sc version
       - run:
           name: Run tests
           command: |
@@ -84,13 +90,13 @@ jobs:
             # cleanly if we kill it from a different step than it started in.
 
             export PATH=$PATH:$HOME/workspace/bin
-            export SAUCE_TUNNEL_IDENTIFIER=$CIRCLE_WORKFLOW_JOB_ID
-            scripts/start-sauce-connect sauce-pidfile
+            export SAUCE_TUNNEL_NAME=$CIRCLE_WORKFLOW_JOB_ID
+            scripts/start-sauce-connect
             set +o errexit
             scripts/run-all-browsers
             exitcode=$?
             set -o errexit
-            scripts/stop-sauce-connect $(cat sauce-pidfile)
+            scripts/stop-sauce-connect
             exit $exitcode
 
 workflows:
@@ -98,6 +104,9 @@ workflows:
 
   push:
     jobs:
+      - build:
+          executor: node24
+          name: build_node_24
       - build:
           executor: node22
           name: build_node_22
@@ -123,10 +132,10 @@ workflows:
           requires:
             - build_node_18
       - test_parallel:
-          executor: node18
-          name: test_parallel_node_18
+          executor: node24
+          name: test_parallel_node_24
           requires:
-            - build_node_18
+            - build_node_24
       - test_parallel:
           executor: node22
           name: test_parallel_node_22
@@ -137,6 +146,11 @@ workflows:
           name: test_parallel_node_20
           requires:
             - build_node_20
+      - test_parallel:
+          executor: node18
+          name: test_parallel_node_18
+          requires:
+            - build_node_18
       - test_browsers:
           requires:
              - build_node_18

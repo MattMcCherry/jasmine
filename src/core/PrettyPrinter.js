@@ -16,7 +16,7 @@ getJasmineRequireObj().makePrettyPrinter = function(j$) {
 
         if (customFormatResult) {
           this.emitScalar(customFormatResult);
-        } else if (j$.util.isUndefined(value)) {
+        } else if (value === undefined) {
           this.emitScalar('undefined');
         } else if (value === null) {
           this.emitScalar('null');
@@ -35,7 +35,11 @@ getJasmineRequireObj().makePrettyPrinter = function(j$) {
         } else if (value instanceof RegExp) {
           this.emitScalar(value.toString());
         } else if (typeof value === 'function') {
-          this.emitScalar('Function');
+          if (value.name) {
+            this.emitScalar(`Function '${value.name}'`);
+          } else {
+            this.emitScalar('Function');
+          }
         } else if (j$.isDomNode(value)) {
           if (value.tagName) {
             this.emitDomElement(value);
@@ -58,6 +62,7 @@ getJasmineRequireObj().makePrettyPrinter = function(j$) {
         ) {
           try {
             this.emitScalar(value.toString());
+            // eslint-disable-next-line no-unused-vars
           } catch (e) {
             this.emitScalar('has-invalid-toString-method');
           }
@@ -304,6 +309,7 @@ getJasmineRequireObj().makePrettyPrinter = function(j$) {
         value.toString !== Object.prototype.toString &&
         value.toString() !== Object.prototype.toString.call(value)
       );
+      // eslint-disable-next-line no-unused-vars
     } catch (e) {
       // The custom toString() threw.
       return true;

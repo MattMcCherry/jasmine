@@ -1,4 +1,3 @@
-/* eslint-disable compat/compat */
 describe('toEqual', function() {
   'use strict';
 
@@ -459,9 +458,9 @@ describe('toEqual', function() {
   });
 
   it('reports mismatches between Functions', function() {
-    const actual = { x: function() {} },
-      expected = { x: function() {} },
-      message = 'Expected $.x = Function to equal Function.';
+    const actual = { x: function() {} };
+    const expected = { x: function() {} };
+    const message = "Expected $.x = Function 'x' to equal Function 'x'.";
 
     expect(compareEquals(actual, expected).message).toEqual(message);
   });
