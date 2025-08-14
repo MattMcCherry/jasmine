@@ -67,10 +67,8 @@ getJasmineRequireObj().MockDate = function(j$) {
       });
 
       ClockIntl.DateTimeFormat = function() {
-        const realFormatter = new (Function.prototype.bind.apply(
-          NativeIntl.DateTimeFormat,
-          [null].concat(Array.prototype.slice.call(arguments))
-        ))();
+        const args = Array.prototype.slice.call(arguments);
+        const realFormatter = new NativeIntl.DateTimeFormat(...args);
         const formatter = {};
 
         ['formatRange', 'formatRangeToParts', 'resolvedOptions'].forEach(
