@@ -66,8 +66,7 @@ getJasmineRequireObj().MockDate = function(j$) {
         ClockIntl[property] = NativeIntl[property];
       });
 
-      ClockIntl.DateTimeFormat = function() {
-        const args = Array.prototype.slice.call(arguments);
+      ClockIntl.DateTimeFormat = function(...args) {
         const realFormatter = new NativeIntl.DateTimeFormat(...args);
         const formatter = {};
 
