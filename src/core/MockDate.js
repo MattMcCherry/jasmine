@@ -1,5 +1,6 @@
 getJasmineRequireObj().MockDate = function(j$) {
-  function MockDate(global, env) {
+  function MockDate(global, options) {
+    const env = options.env || {};
     let currentTime = 0;
     let originalIntl = null;
 
