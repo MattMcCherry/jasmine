@@ -29,8 +29,12 @@ getJasmineRequireObj().MockDate = function(j$) {
 
       global.Date = FakeDate;
 
-      if (env && env.configuration().mockIntlDateTimeFormat &&
-          global.Intl && typeof global.Intl === 'object') {
+      if (
+        env &&
+        env.configuration().mockIntlDateTimeFormat &&
+        global.Intl &&
+        typeof global.Intl === 'object'
+      ) {
         originalIntl = global.Intl;
         fakeIntl = this.createIntl();
         if (fakeIntl) {
@@ -67,24 +71,33 @@ getJasmineRequireObj().MockDate = function(j$) {
         ClockIntl[property] = NativeIntl[property];
       });
 
-      ClockIntl.DateTimeFormat = function(...args) {
-        const realFormatter = new NativeIntl.DateTimeFormat(...args);
-        const formatter = {};
+      const DateTimeFormatProxy = new Proxy(NativeIntl.DateTimeFormat, {
+        construct(target, argArray, newTarget) {
+          const realFormatter = Reflect.construct(target, argArray, newTarget);
+          return new Proxy(realFormatter, {
+            get(formatterTarget, prop) {
+              const originalMethod = formatterTarget[prop];
+              if (
+                typeof prop === 'string' &&
+                ['format', 'formatToParts'].includes(prop)
+              ) {
+                return function formatClockCompatible(...args) {
+                  return Reflect.apply(
+                    originalMethod,
+                    formatterTarget,
+                    args.length === 0 ? [new FakeDate()] : args
+                  );
+                };
+              }
+              return function reflectBoundMethod(...args) {
+                return Reflect.apply(originalMethod, formatterTarget, args);
+              };
+            }
+          });
+        }
+      });
 
-        ['formatRange', 'formatRangeToParts', 'resolvedOptions'].forEach(
-          function(method) {
-            formatter[method] = realFormatter[method].bind(realFormatter);
-          }
-        );
-
-        ['format', 'formatToParts'].forEach(function(method) {
-          formatter[method] = function(date) {
-            return realFormatter[method](date || new FakeDate());
-          };
-        });
-
-        return formatter;
-      };
+      ClockIntl.DateTimeFormat = DateTimeFormatProxy;
 
       ClockIntl.DateTimeFormat.prototype = Object.create(
         NativeIntl.DateTimeFormat.prototype
