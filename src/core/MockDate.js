@@ -2,7 +2,6 @@ getJasmineRequireObj().MockDate = function(j$) {
   function MockDate(global, env) {
     let currentTime = 0;
     let originalIntl = null;
-    let fakeIntl = null;
 
     if (!global || !global.Date) {
       this.install = function() {};
@@ -36,10 +35,7 @@ getJasmineRequireObj().MockDate = function(j$) {
         typeof global.Intl === 'object'
       ) {
         originalIntl = global.Intl;
-        fakeIntl = this.createIntl();
-        if (fakeIntl) {
-          global.Intl = fakeIntl;
-        }
+        global.Intl = this.installIntl();
       }
     };
 
@@ -55,15 +51,10 @@ getJasmineRequireObj().MockDate = function(j$) {
       if (originalIntl !== null) {
         global.Intl = originalIntl;
         originalIntl = null;
-        fakeIntl = null;
       }
     };
 
-    this.createIntl = function() {
-      if (!global.Intl || typeof global.Intl !== 'object') {
-        return null;
-      }
-
+    this.installIntl = function() {
       const NativeIntl = global.Intl;
       const ClockIntl = {};
 
