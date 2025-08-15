@@ -90,6 +90,7 @@ getJasmineRequireObj().MockDate = function(j$) {
                 };
               }
               return function reflectBoundMethod(...args) {
+                // using Reflect.apply as original constructor's Date is expected to be called by the browser otherwise we get incompatible receiver errors.
                 return Reflect.apply(originalMethod, formatterTarget, args);
               };
             }
