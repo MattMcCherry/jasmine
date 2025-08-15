@@ -57,7 +57,6 @@ getJasmineRequireObj().Clock = function() {
       replace(global, fakeTimingFunctions);
       timer = fakeTimingFunctions;
       delayedFunctionScheduler = delayedFunctionSchedulerFactory();
-
       installed = true;
 
       return this;
@@ -76,7 +75,6 @@ getJasmineRequireObj().Clock = function() {
       }
       delayedFunctionScheduler = null;
       mockDate.uninstall();
-
       replace(global, realTimingFunctions);
 
       timer = realTimingFunctions;
