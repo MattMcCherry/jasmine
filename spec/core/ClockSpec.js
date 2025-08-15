@@ -1235,7 +1235,7 @@ describe('Clock (acceptance)', function() {
 
     it('should use mocked date for Intl.DateTimeFormat.format() without arguments', function() {
       clock.install();
-      clock.mockDate(new Date(2020, 11, 20, 10, 10)); // Dec 20, 2020
+      clock.mockDate(new Date(2020, 11, 20, 10, 10));
 
       const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
         timeZone: 'UTC'
@@ -1248,7 +1248,7 @@ describe('Clock (acceptance)', function() {
 
     it('should use mocked date for Intl.DateTimeFormat.formatToParts() without arguments', function() {
       clock.install();
-      clock.mockDate(new Date(2020, 11, 20, 10, 10)); // Dec 20, 2020
+      clock.mockDate(new Date(2020, 11, 20, 10, 10));
 
       const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
         timeZone: 'UTC'
@@ -1261,7 +1261,7 @@ describe('Clock (acceptance)', function() {
 
     it('should work correctly with explicit date parameters', function() {
       clock.install();
-      clock.mockDate(new Date(2020, 11, 20, 10, 10)); // Dec 20, 2020
+      clock.mockDate(new Date(2020, 11, 20, 10, 10));
 
       const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
         timeZone: 'UTC'
@@ -1273,7 +1273,7 @@ describe('Clock (acceptance)', function() {
 
     it('should preserve other Intl.DateTimeFormat methods', function() {
       clock.install();
-      clock.mockDate(new Date(2020, 11, 20, 10, 10)); // Dec 20, 2020
+      clock.mockDate(new Date(2020, 11, 20, 10, 10));
 
       const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
         timeZone: 'UTC'
@@ -1355,7 +1355,7 @@ describe('Clock (acceptance)', function() {
       it('should not mock Intl.DateTimeFormat when configuration is disabled', function() {
         const originalIntl = fakeGlobal.Intl;
         clock.install();
-        clock.mockDate(new Date(2020, 11, 20, 10, 10)); // Dec 20, 2020
+        clock.mockDate(new Date(2020, 11, 20, 10, 10));
 
         expect(fakeGlobal.Intl).toBe(originalIntl);
 
