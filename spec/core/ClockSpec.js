@@ -1206,7 +1206,7 @@ describe('Clock (acceptance)', function() {
   });
 
   describe('Intl.DateTimeFormat integration', function() {
-    let clock, fakeGlobal, delayedFunctionScheduler, mockDate;
+    let clock, fakeGlobal, delayedFunctionScheduler, mockDate, fakeEnv;
 
     beforeEach(function() {
       fakeGlobal = {
@@ -1217,8 +1217,13 @@ describe('Clock (acceptance)', function() {
         setInterval: jasmine.createSpy('setInterval'),
         clearInterval: jasmine.createSpy('clearInterval')
       };
+      fakeEnv = {
+        configuration: jasmine.createSpy('configuration').and.returnValue({
+          mockIntlDateTimeFormat: true
+        })
+      };
       delayedFunctionScheduler = new jasmineUnderTest.DelayedFunctionScheduler();
-      mockDate = new jasmineUnderTest.MockDate(fakeGlobal);
+      mockDate = new jasmineUnderTest.MockDate(fakeGlobal, fakeEnv);
       clock = new jasmineUnderTest.Clock(
         fakeGlobal,
         function() {
@@ -1301,7 +1306,8 @@ describe('Clock (acceptance)', function() {
       };
 
       const mockDateWithoutIntl = new jasmineUnderTest.MockDate(
-        fakeGlobalWithoutIntl
+        fakeGlobalWithoutIntl,
+        fakeEnv
       );
       const clockWithoutIntl = new jasmineUnderTest.Clock(
         fakeGlobalWithoutIntl,
@@ -1315,6 +1321,39 @@ describe('Clock (acceptance)', function() {
         clockWithoutIntl.install();
         clockWithoutIntl.uninstall();
       }).not.toThrow();
+    });
+
+    describe('when mockIntlDateTimeFormat configuration is disabled', function() {
+      beforeEach(function() {
+        fakeEnv.configuration = jasmine.createSpy('configuration').and.returnValue({
+          mockIntlDateTimeFormat: false
+        });
+        mockDate = new jasmineUnderTest.MockDate(fakeGlobal, fakeEnv);
+        clock = new jasmineUnderTest.Clock(
+          fakeGlobal,
+          function() {
+            return delayedFunctionScheduler;
+          },
+          mockDate
+        );
+      });
+
+      it('should not mock Intl.DateTimeFormat when configuration is disabled', function() {
+        const originalIntl = fakeGlobal.Intl;
+        clock.install();
+        clock.mockDate(new Date(2020, 11, 20, 10, 10)); // Dec 20, 2020
+
+        expect(fakeGlobal.Intl).toBe(originalIntl);
+        
+        const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
+          timeZone: 'UTC'
+        });
+        
+        // Should use real current date, not mocked date
+        expect(formatter.format()).not.toEqual(
+          formatter.format(new fakeGlobal.Date())
+        );
+      });
     });
   });
 });

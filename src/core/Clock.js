@@ -29,8 +29,6 @@ getJasmineRequireObj().Clock = function() {
     let installed = false;
     let delayedFunctionScheduler;
     let timer;
-    let originalIntl = null;
-    let fakeIntl = null;
     // Tracks how the clock ticking behaves.
     // By default, the clock only ticks when the user manually calls a tick method.
     // There is also an 'auto' mode which will advance the clock automatically to
@@ -60,14 +58,6 @@ getJasmineRequireObj().Clock = function() {
       timer = fakeTimingFunctions;
       delayedFunctionScheduler = delayedFunctionSchedulerFactory();
 
-      if (global.Intl && typeof global.Intl === 'object') {
-        originalIntl = global.Intl;
-        fakeIntl = mockDate.createIntl();
-        if (fakeIntl) {
-          global.Intl = fakeIntl;
-        }
-      }
-
       installed = true;
 
       return this;
@@ -86,12 +76,6 @@ getJasmineRequireObj().Clock = function() {
       }
       delayedFunctionScheduler = null;
       mockDate.uninstall();
-
-      if (originalIntl !== null) {
-        global.Intl = originalIntl;
-        originalIntl = null;
-        fakeIntl = null;
-      }
 
       replace(global, realTimingFunctions);
 
