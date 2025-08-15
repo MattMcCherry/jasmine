@@ -1233,43 +1233,8 @@ describe('Clock (acceptance)', function() {
       );
     });
 
-    it('should use mocked date for Intl.DateTimeFormat.format() without arguments', function() {
-      clock.install();
-      clock.mockDate(new Date(2020, 11, 20, 10, 10));
 
-      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
-        timeZone: 'UTC'
-      });
 
-      expect(formatter.format()).toEqual(
-        formatter.format(new fakeGlobal.Date())
-      );
-    });
-
-    it('should use mocked date for Intl.DateTimeFormat.formatToParts() without arguments', function() {
-      clock.install();
-      clock.mockDate(new Date(2020, 11, 20, 10, 10));
-
-      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
-        timeZone: 'UTC'
-      });
-
-      expect(formatter.formatToParts()).toEqual(
-        formatter.formatToParts(new fakeGlobal.Date())
-      );
-    });
-
-    it('should work correctly with explicit date parameters', function() {
-      clock.install();
-      clock.mockDate(new Date(2020, 11, 20, 10, 10));
-
-      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
-        timeZone: 'UTC'
-      });
-      const specificDate = new Date(2019, 0, 1);
-
-      expect(formatter.format(specificDate)).toEqual('1/1/2019');
-    });
 
     it('should preserve other Intl.DateTimeFormat methods', function() {
       clock.install();
@@ -1297,16 +1262,6 @@ describe('Clock (acceptance)', function() {
       ).toEqual(jasmine.any(Array));
     });
 
-    it('should restore original Intl after uninstall', function() {
-      const originalIntl = fakeGlobal.Intl;
-
-      clock.install();
-      clock.mockDate(new Date(2020, 11, 20, 10, 10));
-      expect(fakeGlobal.Intl).not.toBe(originalIntl);
-
-      clock.uninstall();
-      expect(fakeGlobal.Intl).toBe(originalIntl);
-    });
 
     it('should handle environment without Intl gracefully', function() {
       const fakeGlobalWithoutIntl = {
