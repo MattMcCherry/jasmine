@@ -1248,6 +1248,86 @@ describe('Clock (acceptance)', function() {
     clock.tick(400);
   });
 
+  describe('Intl.DateTimeFormat integration', function() {
+    let clock;
+    let fakeGlobal;
+    let delayedFunctionScheduler;
+    let mockDate;
+    let env;
+
+    beforeEach(function() {
+      env = new privateUnderTest.Env();
+      env.configure({ mockIntlDateTimeFormat: true });
+      fakeGlobal = {
+        Date: Date,
+        Intl: Intl,
+        setTimeout: jasmine.createSpy('setTimeout'),
+        clearTimeout: jasmine.createSpy('clearTimeout'),
+        setInterval: jasmine.createSpy('setInterval'),
+        clearInterval: jasmine.createSpy('clearInterval')
+      };
+      delayedFunctionScheduler = new privateUnderTest.DelayedFunctionScheduler();
+      mockDate = new privateUnderTest.MockDate(fakeGlobal, () => env.configuration());
+      clock = new privateUnderTest.Clock(
+        fakeGlobal,
+        function() {
+          return delayedFunctionScheduler;
+        },
+        mockDate
+      );
+    });
+
+    afterEach(function() {
+      clock.uninstall();
+      env.cleanup_();
+    });
+
+    it('should preserve other Intl.DateTimeFormat methods', function() {
+      const start = new Date(2020, 11, 20, 10, 10);
+      const end = new Date(2020, 12, 20, 10, 10);
+      clock.install();
+      clock.mockDate(start);
+
+      const opts = { timeZone: 'UTC' };
+      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', opts);
+      const nativeFormatter = new Intl.DateTimeFormat('en-US', opts);
+
+      expect(typeof formatter.resolvedOptions).toBe('function');
+      expect(formatter.resolvedOptions().locale).toMatch(/en/);
+      expect(typeof formatter.formatRange).toBe('function');
+      expect(formatter.formatRange(start, end)).toBe(nativeFormatter.formatRange(start, end));
+      expect(typeof formatter.formatRangeToParts).toBe('function');
+      expect(formatter.formatRangeToParts(start, end)).toEqual(jasmine.any(Array));
+    });
+
+    describe('when mockIntlDateTimeFormat configuration is disabled', function() {
+      it('should not mock Intl.DateTimeFormat when configuration is disabled', function() {
+        env.configure({ mockIntlDateTimeFormat: false });
+        mockDate = new privateUnderTest.MockDate(fakeGlobal, () => env.configuration());
+        clock = new privateUnderTest.Clock(
+          fakeGlobal,
+          function() {
+            return delayedFunctionScheduler;
+          },
+          mockDate
+        );
+        const originalDateTimeFormat = fakeGlobal.Intl.DateTimeFormat;
+        clock.install();
+        clock.mockDate(new Date(2020, 11, 20, 10, 10));
+
+        expect(fakeGlobal.Intl.DateTimeFormat).toBe(originalDateTimeFormat);
+
+        const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
+          timeZone: 'UTC'
+        });
+
+        expect(formatter.format()).not.toEqual(
+          formatter.format(new fakeGlobal.Date())
+        );
+      });
+    });
+  });
+
   describe('Warning about monkey patching', function() {
     for (const name of ['tick', 'mockDate', 'install', 'uninstall']) {
       it(`warns if Clock#${name} is monkey patched`, function() {
