@@ -1267,7 +1267,9 @@ describe('Clock (acceptance)', function() {
         clearInterval: jasmine.createSpy('clearInterval')
       };
       delayedFunctionScheduler = new privateUnderTest.DelayedFunctionScheduler();
-      mockDate = new privateUnderTest.MockDate(fakeGlobal, () => env.configuration());
+      mockDate = new privateUnderTest.MockDate(fakeGlobal, () =>
+        env.configuration()
+      );
       clock = new privateUnderTest.Clock(
         fakeGlobal,
         function() {
@@ -1295,15 +1297,21 @@ describe('Clock (acceptance)', function() {
       expect(typeof formatter.resolvedOptions).toBe('function');
       expect(formatter.resolvedOptions().locale).toMatch(/en/);
       expect(typeof formatter.formatRange).toBe('function');
-      expect(formatter.formatRange(start, end)).toBe(nativeFormatter.formatRange(start, end));
+      expect(formatter.formatRange(start, end)).toBe(
+        nativeFormatter.formatRange(start, end)
+      );
       expect(typeof formatter.formatRangeToParts).toBe('function');
-      expect(formatter.formatRangeToParts(start, end)).toEqual(jasmine.any(Array));
+      expect(formatter.formatRangeToParts(start, end)).toEqual(
+        jasmine.any(Array)
+      );
     });
 
     describe('when mockIntlDateTimeFormat configuration is disabled', function() {
       it('should not mock Intl.DateTimeFormat when configuration is disabled', function() {
         env.configure({ mockIntlDateTimeFormat: false });
-        mockDate = new privateUnderTest.MockDate(fakeGlobal, () => env.configuration());
+        mockDate = new privateUnderTest.MockDate(fakeGlobal, () =>
+          env.configuration()
+        );
         clock = new privateUnderTest.Clock(
           fakeGlobal,
           function() {

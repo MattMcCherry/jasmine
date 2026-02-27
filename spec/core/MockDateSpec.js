@@ -208,7 +208,9 @@ describe('FakeDate', function() {
       };
       env = new privateUnderTest.Env();
       env.configure({ mockIntlDateTimeFormat: true });
-      mockDate = new privateUnderTest.MockDate(fakeGlobal, () => env.configuration());
+      mockDate = new privateUnderTest.MockDate(fakeGlobal, () =>
+        env.configuration()
+      );
     });
 
     afterEach(function() {
@@ -218,11 +220,18 @@ describe('FakeDate', function() {
 
     it('mocks DateTimeFormat.format() without arguments', function() {
       const mockedDate = new Date(2020, 11, 20, 10, 10);
-      const opts = { timeZone: 'UTC', month: 'numeric', day: 'numeric', year: 'numeric' };
+      const opts = {
+        timeZone: 'UTC',
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric'
+      };
       mockDate.install(mockedDate);
 
       const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', opts);
-      const nativeResult = new Intl.DateTimeFormat('en-US', opts).format(mockedDate);
+      const nativeResult = new Intl.DateTimeFormat('en-US', opts).format(
+        mockedDate
+      );
 
       expect(formatter.format()).toEqual(nativeResult);
       expect(formatter.format(new fakeGlobal.Date())).toEqual(nativeResult);
@@ -230,11 +239,18 @@ describe('FakeDate', function() {
 
     it('mocks DateTimeFormat.formatToParts() without arguments', function() {
       const mockedDate = new Date(2020, 11, 20, 10, 10);
-      const opts = { timeZone: 'UTC', month: 'numeric', day: 'numeric', year: 'numeric' };
+      const opts = {
+        timeZone: 'UTC',
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric'
+      };
       mockDate.install(mockedDate);
 
       const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', opts);
-      const expected = new Intl.DateTimeFormat('en-US', opts).formatToParts(mockedDate);
+      const expected = new Intl.DateTimeFormat('en-US', opts).formatToParts(
+        mockedDate
+      );
 
       expect(formatter.formatToParts()).toEqual(expected);
       expect(formatter.formatToParts(new fakeGlobal.Date())).toEqual(expected);
@@ -251,12 +267,19 @@ describe('FakeDate', function() {
 
     it('restores original Intl on uninstall', function() {
       const mockedDate = new Date(2020, 11, 20, 10, 10);
-      const opts = { timeZone: 'UTC', month: 'numeric', day: 'numeric', year: 'numeric' };
+      const opts = {
+        timeZone: 'UTC',
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric'
+      };
       const originalDateTimeFormat = fakeGlobal.Intl.DateTimeFormat;
       mockDate.install(mockedDate);
 
       const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', opts);
-      const nativeResult = new Intl.DateTimeFormat('en-US', opts).format(mockedDate);
+      const nativeResult = new Intl.DateTimeFormat('en-US', opts).format(
+        mockedDate
+      );
 
       expect(formatter.format()).toEqual(nativeResult);
 
@@ -264,7 +287,10 @@ describe('FakeDate', function() {
 
       expect(fakeGlobal.Intl.DateTimeFormat).toBe(originalDateTimeFormat);
 
-      const restoredFormatter = new fakeGlobal.Intl.DateTimeFormat('en-US', opts);
+      const restoredFormatter = new fakeGlobal.Intl.DateTimeFormat(
+        'en-US',
+        opts
+      );
 
       expect(restoredFormatter.format()).not.toEqual(nativeResult);
     });
@@ -272,11 +298,18 @@ describe('FakeDate', function() {
     it('handles explicit date arguments normally', function() {
       mockDate.install(new Date(2020, 11, 20, 10, 10));
 
-      const opts = { timeZone: 'UTC', month: 'numeric', day: 'numeric', year: 'numeric' };
+      const opts = {
+        timeZone: 'UTC',
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric'
+      };
       const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', opts);
 
       const explicitDate = new Date(2019, 0, 15);
-      const nativeResult = new Intl.DateTimeFormat('en-US', opts).format(explicitDate);
+      const nativeResult = new Intl.DateTimeFormat('en-US', opts).format(
+        explicitDate
+      );
       expect(formatter.format(explicitDate)).toEqual(nativeResult);
     });
   });

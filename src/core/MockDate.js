@@ -61,7 +61,10 @@ getJasmineRequireObj().MockDate = function(j$) {
               if (prop === 'format' || prop === 'formatToParts') {
                 const originalMethod = formatterTarget[prop];
                 return function(date) {
-                  return originalMethod.call(formatterTarget, date || new FakeDate());
+                  return originalMethod.call(
+                    formatterTarget,
+                    date || new FakeDate()
+                  );
                 };
               }
               const value = Reflect.get(formatterTarget, prop, receiver);
