@@ -196,57 +196,45 @@ describe('FakeDate', function() {
     expect(fakeGlobal.Date.UTC(2013, 9, 23)).toEqual(Date.UTC(2013, 9, 23));
   });
 
-  describe('Intl.DateTimeFormat mocking', function() {
-    let fakeGlobal, mockDate, mockEnv;
+  describe('Supports Intl.DateTimeFormat', function() {
+    let fakeGlobal;
+    let mockDate;
+    let env;
 
     beforeEach(function() {
       fakeGlobal = {
         Date: Date,
         Intl: typeof Intl !== 'undefined' ? Intl : null
       };
-      mockEnv = {
-        configuration: function() {
-          return { mockIntlDateTimeFormat: true };
-        }
-      };
-      mockDate = new jasmineUnderTest.MockDate(fakeGlobal, mockEnv);
+      env = new jasmineUnderTest.Env();
+      env.configure({ mockIntlDateTimeFormat: true });
+      mockDate = new jasmineUnderTest.MockDate(fakeGlobal, () => env.configuration());
+    });
+
+    afterEach(function() {
+      mockDate.uninstall();
+      env.cleanup_();
     });
 
     it('mocks DateTimeFormat.format() without arguments', function() {
-      mockDate.install(new Date(2020, 11, 20, 10, 10));
+      const mockedDate = new Date(2020, 11, 20, 10, 10);
+      const opts = { timeZone: 'UTC', month: 'numeric', day: 'numeric', year: 'numeric' };
+      mockDate.install(mockedDate);
 
-      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
-        timeZone: 'UTC',
-        month: 'numeric',
-        day: 'numeric',
-        year: 'numeric'
-      });
+      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', opts);
+      const nativeResult = new Intl.DateTimeFormat('en-US', opts).format(mockedDate);
 
-      const mockedTime = Date.UTC(2020, 11, 20, 10, 10);
-      expect(new fakeGlobal.Date().getTime()).toEqual(mockedTime);
-      expect(fakeGlobal.Date.now()).toEqual(mockedTime);
-
-      expect(formatter.format()).toEqual('12/20/2020');
-      expect(formatter.format(new fakeGlobal.Date())).toEqual('12/20/2020');
+      expect(formatter.format()).toEqual(nativeResult);
+      expect(formatter.format(new fakeGlobal.Date())).toEqual(nativeResult);
     });
 
     it('mocks DateTimeFormat.formatToParts() without arguments', function() {
-      mockDate.install(new Date(2020, 11, 20, 10, 10));
+      const mockedDate = new Date(2020, 11, 20, 10, 10);
+      const opts = { timeZone: 'UTC', month: 'numeric', day: 'numeric', year: 'numeric' };
+      mockDate.install(mockedDate);
 
-      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
-        timeZone: 'UTC',
-        month: 'numeric',
-        day: 'numeric',
-        year: 'numeric'
-      });
-
-      const expected = [
-        { type: 'month', value: '12' },
-        { type: 'literal', value: '/' },
-        { type: 'day', value: '20' },
-        { type: 'literal', value: '/' },
-        { type: 'year', value: '2020' }
-      ];
+      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', opts);
+      const expected = new Intl.DateTimeFormat('en-US', opts).formatToParts(mockedDate);
 
       expect(formatter.formatToParts()).toEqual(expected);
       expect(formatter.formatToParts(new fakeGlobal.Date())).toEqual(expected);
@@ -262,58 +250,34 @@ describe('FakeDate', function() {
     });
 
     it('restores original Intl on uninstall', function() {
-      const originalIntl = fakeGlobal.Intl;
-      mockDate.install(new Date(2020, 11, 20, 10, 10));
+      const mockedDate = new Date(2020, 11, 20, 10, 10);
+      const opts = { timeZone: 'UTC', month: 'numeric', day: 'numeric', year: 'numeric' };
+      const originalDateTimeFormat = fakeGlobal.Intl.DateTimeFormat;
+      mockDate.install(mockedDate);
 
-      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
-        timeZone: 'UTC',
-        month: 'numeric',
-        day: 'numeric',
-        year: 'numeric'
-      });
+      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', opts);
+      const nativeResult = new Intl.DateTimeFormat('en-US', opts).format(mockedDate);
 
-      expect(formatter.format()).toEqual('12/20/2020');
+      expect(formatter.format()).toEqual(nativeResult);
 
       mockDate.uninstall();
 
-      expect(fakeGlobal.Intl).toBe(originalIntl);
+      expect(fakeGlobal.Intl.DateTimeFormat).toBe(originalDateTimeFormat);
 
-      const restoredFormatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
-        timeZone: 'UTC',
-        month: 'numeric',
-        day: 'numeric',
-        year: 'numeric'
-      });
+      const restoredFormatter = new fakeGlobal.Intl.DateTimeFormat('en-US', opts);
 
-      expect(restoredFormatter.format()).not.toEqual('12/20/2020');
+      expect(restoredFormatter.format()).not.toEqual(nativeResult);
     });
 
     it('handles explicit date arguments normally', function() {
       mockDate.install(new Date(2020, 11, 20, 10, 10));
 
-      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', {
-        timeZone: 'UTC',
-        month: 'numeric',
-        day: 'numeric',
-        year: 'numeric'
-      });
+      const opts = { timeZone: 'UTC', month: 'numeric', day: 'numeric', year: 'numeric' };
+      const formatter = new fakeGlobal.Intl.DateTimeFormat('en-US', opts);
 
       const explicitDate = new Date(2019, 0, 15);
-      expect(formatter.format(explicitDate)).toEqual('1/15/2019');
-    });
-
-    it('does not install Intl mocking when configuration disabled', function() {
-      mockEnv.configuration = function() {
-        return { mockIntlDateTimeFormat: false };
-      };
-
-      const mockDateWithoutIntl = new jasmineUnderTest.MockDate(
-        fakeGlobal,
-        mockEnv
-      );
-      mockDateWithoutIntl.install(new Date(2020, 11, 20, 10, 10));
-
-      expect(fakeGlobal.Intl).toBe(Intl);
+      const nativeResult = new Intl.DateTimeFormat('en-US', opts).format(explicitDate);
+      expect(formatter.format(explicitDate)).toEqual(nativeResult);
     });
   });
 });

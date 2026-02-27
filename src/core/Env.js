@@ -22,7 +22,7 @@ getJasmineRequireObj().Env = function(j$) {
       function() {
         return new j$.DelayedFunctionScheduler();
       },
-      new j$.MockDate(global, { env: this })
+      new j$.MockDate(global, () => this.configuration())
     );
 
     const globalErrors = new GlobalErrors(
@@ -186,7 +186,6 @@ getJasmineRequireObj().Env = function(j$) {
        * will use the mocked date when called without arguments, ensuring
        * consistent behavior with other date APIs.
        * @name Configuration#mockIntlDateTimeFormat
-       * @since 5.11.0
        * @type Boolean
        * @default false
        */
@@ -229,7 +228,8 @@ getJasmineRequireObj().Env = function(j$) {
         'stopSpecOnExpectationFailure',
         'autoCleanClosures',
         'forbidDuplicateNames',
-        'detectLateRejectionHandling'
+        'detectLateRejectionHandling',
+        'mockIntlDateTimeFormat'
       ];
 
       booleanProps.forEach(function(prop) {
