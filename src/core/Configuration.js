@@ -174,7 +174,6 @@ getJasmineRequireObj().Configuration = function(j$) {
      * will use the mocked date when called without arguments, ensuring
      * consistent behavior with other date APIs.
      * @name Configuration#mockIntlDateTimeFormat
-     * @since 5.11.0
      * @type Boolean
      * @default false
      */
